@@ -160,12 +160,14 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
         /// </summary>
         private delegate void CompilationTaskEventTypeHandler(string? parentTaskName, string taskName);
 
-        // Private members.
+        // Public members.
 
         /// <summary>
         /// Represents the file name where the compilation performance data will be stored.
         /// </summary>
-        private const string CompilationPerfDataFileName = "CompilationPerfData.json";
+        public static readonly string CompilationPerfDataFileName = "CompilationPerfData.json";
+
+        // Private members.
 
         /// <summary>
         /// Provides thread-safe access to the members and methods of this class.
@@ -198,7 +200,6 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
         {
             var compilationTasksForest = new List<CompilationTaskNode>();
             var toFindChildrenNodes = new Queue<CompilationTaskNode>();
-
             lock (GlobalLock)
             {
                 // First add the roots (top-level tasks) of all trees to the forest.
@@ -267,7 +268,7 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
         /// <summary>
         /// Handles a compilation task event.
         /// </summary>
-        public static void OnCompilationTaskEvent(CompilationTaskEventType type, string parentTaskName, string taskName)
+        public static void OnCompilationTaskEvent(CompilationTaskEventType type, string? parentTaskName, string taskName)
         {
             lock (GlobalLock)
             {
@@ -285,7 +286,7 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
         /// Throws an IOException if the specified output folder is a file path.
         /// Throws a NotSupportedException if the path to the output folder is malformed.
         /// </summary>
-        public static void PublishResults(string outputFolder)
+        public static void PublishResults(string outputFolder, bool clearTracking = false)
         {
             var compilationProcessesForest = BuildCompilationTasksHierarchy();
             var outputPath = Path.GetFullPath(outputFolder);
@@ -306,6 +307,11 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
 
                 jsonWriter.WriteEndObject();
                 jsonWriter.Flush();
+            }
+
+            if (clearTracking)
+            {
+                CompilationTasks.Clear();
             }
         }
     }

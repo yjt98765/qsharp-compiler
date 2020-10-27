@@ -181,7 +181,7 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
 
             try
             {
-                CompilationTracker.PublishResults(perfFolder);
+                CompilationTracker.PublishResults(perfFolder, true);
             }
             catch (Exception ex)
             {
