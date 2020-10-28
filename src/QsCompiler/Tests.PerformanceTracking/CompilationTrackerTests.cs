@@ -15,18 +15,26 @@ namespace Tests.PerformanceTracking
 {
     public class CompilationTrackerTests
     {
-        private static readonly int ErrorMarginInMs = 25;
         private static readonly string ResultsFolderRootName = "Results";
+        private static readonly int TaskErrorMarginInMs = 25;
 
         [Theory]
+        [InlineData(0)]
+        [InlineData(10)]
+        [InlineData(25)]
         [InlineData(100)]
-        [InlineData(500)]
-        [InlineData(825)]
+        [InlineData(350)]
+        [InlineData(635)]
         [InlineData(1000)]
+        [InlineData(3333)]
         [InlineData(5050)]
-        public void MeasureSingleTask(int durationInMs)
+        [InlineData(10000)]
+        public void MeasureTask(int durationInMs)
         {
+            CompilationTracker.ClearData();
             const string taskName = "TestTask";
+
+            // Measure time spent in a task.
             CompilationTracker.OnCompilationTaskEvent(
                 Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
                 null,
@@ -38,13 +46,226 @@ namespace Tests.PerformanceTracking
                 null,
                 taskName);
 
+            // Publish measurement results.
             var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
-            CompilationTracker.PublishResults(resultsFolder, true);
+            CompilationTracker.PublishResults(resultsFolder);
             var resultsFile = Path.Combine(resultsFolder, CompilationTracker.CompilationPerfDataFileName);
             var resultsDictionary = ParseJsonToDictionary(resultsFile);
+
+            // Verify measured results are the expected ones.
             Assert.True(resultsDictionary.TryGetValue(taskName, out var measuredDurationInMs));
-            var (lowerLimit, upperLimit) = CalculateMeasurementLimits(durationInMs, ErrorMarginInMs);
+            var (lowerLimit, upperLimit) = CalculateMeasurementLimits(durationInMs, TaskErrorMarginInMs);
             Assert.InRange(measuredDurationInMs, lowerLimit, upperLimit);
+        }
+
+        [Theory]
+        [InlineData(new int[] { })]
+        [InlineData(new int[] { 1000 })]
+        [InlineData(new int[] {150, 225})]
+        [InlineData(new int[] { 1000, 250, 825, 1555 })]
+        [InlineData(new int[] { 250, 300, 400, 200, 150, 750, 425, 1035, 900 })]
+        public void MeasureTasks1LevelNested(int[] nestedTasksDurationInMs)
+        {
+            CompilationTracker.ClearData();
+            const string parentTaskName = "ParentTask";
+            const string nestedTaskPrefix = "NestedTask";
+
+            // Measure time spent in a tasks.
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                null,
+                parentTaskName);
+
+            var expectedParentTaskDurationInMs = 0;
+            for(int taskIndex = 0; taskIndex < nestedTasksDurationInMs.Length; taskIndex++)
+            {
+                var taskName = $"{nestedTaskPrefix}-{taskIndex}";
+                var taskDurationInMs = nestedTasksDurationInMs[taskIndex];
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    parentTaskName,
+                    taskName);
+
+                Thread.Sleep(taskDurationInMs);
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    parentTaskName,
+                    taskName);
+
+                expectedParentTaskDurationInMs += taskDurationInMs;
+            }
+
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                null,
+                parentTaskName);
+
+            // Publish measurement results.
+            var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
+            CompilationTracker.PublishResults(resultsFolder);
+            var resultsFile = Path.Combine(resultsFolder, CompilationTracker.CompilationPerfDataFileName);
+            var resultsDictionary = ParseJsonToDictionary(resultsFile);
+
+            // Verify measured results are the expected ones.
+            Assert.True(resultsDictionary.TryGetValue(parentTaskName, out var measuredParentTaskDurationInMs));
+            var acumulatedErrorMargin = TaskErrorMarginInMs * nestedTasksDurationInMs.Length;
+            int lowerLimit, upperLimit;
+            (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedParentTaskDurationInMs, acumulatedErrorMargin);
+            Assert.InRange(measuredParentTaskDurationInMs, lowerLimit, upperLimit);
+            for (int taskIndex = 0; taskIndex < nestedTasksDurationInMs.Length; taskIndex++)
+            {
+                var taskName = $"{nestedTaskPrefix}-{taskIndex}";
+                var taskId = $"{parentTaskName}.{taskName}";
+                var expectedTaskDurationInMs = nestedTasksDurationInMs[taskIndex];
+                Assert.True(resultsDictionary.TryGetValue(taskId, out var measuredTaskDurationInMs));
+                (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedTaskDurationInMs, TaskErrorMarginInMs);
+                Assert.InRange(measuredTaskDurationInMs, lowerLimit, upperLimit);
+            }
+        }
+
+        [Theory]
+        [InlineData(new int[] { },
+                    new int[] { })]
+        [InlineData(new int[] { },
+                    new int[] { 500 })]
+        [InlineData(new int[] { 500 },
+                    new int[] { })]
+        [InlineData(new int[] { 0 },
+                    new int[] { 500 })]
+        [InlineData(new int[] { 500 },
+                    new int[] { 0 })]
+        [InlineData(new int[] { 500 },
+                    new int[] { 500 })]
+        [InlineData(new int[] { 150, 325 },
+                    new int[] { 500, 250, 765 })]
+        [InlineData(new int[] { 500, 250, 765 },
+                    new int[] { 150, 325 })]
+        [InlineData(new int[] { 100 },
+                    new int[] { 1035, 555, 775, 225, 2500 })]
+        [InlineData(new int[] { 350, 155, 670, 2250, 25, 1110 },
+                    new int[] { 0 })]
+        public void MeasureTasks2LevelNested(
+            int[] firstNestedTasksDurationInMs,
+            int[] secondNestedTasksDurationInMs)
+        {
+            CompilationTracker.ClearData();
+            const string parentTaskName = "ParentTask";
+            const string firstNestedTaskName = "FirstNestedTask";
+            const string firstLeafTaskPrefix = "FirstLeafTask";
+            const string secondNestedTaskName = "SecondNestedTask";
+            const string secondLeafTaskPrefix = "SecondLeafTask";
+
+            // Measure time spent in a tasks.
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                null,
+                parentTaskName);
+
+            var expectedFirstNestedTaskDurationInMs = 0;
+            CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    parentTaskName,
+                    firstNestedTaskName);
+
+            for (int taskIndex = 0; taskIndex < firstNestedTasksDurationInMs.Length; taskIndex++)
+            {
+                var taskName = $"{firstLeafTaskPrefix}-{taskIndex}";
+                var taskDurationInMs = firstNestedTasksDurationInMs[taskIndex];
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    firstNestedTaskName,
+                    taskName);
+
+                Thread.Sleep(taskDurationInMs);
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    firstNestedTaskName,
+                    taskName);
+
+                expectedFirstNestedTaskDurationInMs += taskDurationInMs;
+            }
+
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                parentTaskName,
+                firstNestedTaskName);
+
+            var expectedSecondNestedTaskDurationInMs = 0;
+            CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    parentTaskName,
+                    secondNestedTaskName);
+
+            for (int taskIndex = 0; taskIndex < secondNestedTasksDurationInMs.Length; taskIndex++)
+            {
+                var taskName = $"{secondLeafTaskPrefix}-{taskIndex}";
+                var taskDurationInMs = secondNestedTasksDurationInMs[taskIndex];
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    secondNestedTaskName,
+                    taskName);
+
+                Thread.Sleep(taskDurationInMs);
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    secondNestedTaskName,
+                    taskName);
+
+                expectedSecondNestedTaskDurationInMs += taskDurationInMs;
+            }
+
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                parentTaskName,
+                secondNestedTaskName);
+
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                null,
+                parentTaskName);
+
+            // Publish measurement results.
+            var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
+            CompilationTracker.PublishResults(resultsFolder);
+            var resultsFile = Path.Combine(resultsFolder, CompilationTracker.CompilationPerfDataFileName);
+            var resultsDictionary = ParseJsonToDictionary(resultsFile);
+
+            // Verify measured results are the expected ones.
+            Assert.True(resultsDictionary.TryGetValue(parentTaskName, out var measuredParentTaskDurationInMs));
+            var totalErrorMargin = TaskErrorMarginInMs * (firstNestedTasksDurationInMs.Length + secondNestedTasksDurationInMs.Length);
+            var expectedParentTaskDurationInMs = expectedFirstNestedTaskDurationInMs + expectedSecondNestedTaskDurationInMs;
+            int lowerLimit, upperLimit;
+            (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedParentTaskDurationInMs, totalErrorMargin);
+            Assert.InRange(measuredParentTaskDurationInMs, lowerLimit, upperLimit);
+            var firstNestedTaskId = $"{parentTaskName}.{firstNestedTaskName}";
+            Assert.True(resultsDictionary.TryGetValue(firstNestedTaskId, out var measuredFirstNestedTaskDurationInMs));
+            var firstNestedTaskErrorMargin = TaskErrorMarginInMs * firstNestedTasksDurationInMs.Length;
+            (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedFirstNestedTaskDurationInMs, firstNestedTaskErrorMargin);
+            Assert.InRange(measuredFirstNestedTaskDurationInMs, lowerLimit, upperLimit);
+            for (int taskIndex = 0; taskIndex < firstNestedTasksDurationInMs.Length; taskIndex++)
+            {
+                var taskName = $"{firstLeafTaskPrefix}-{taskIndex}";
+                var taskId = $"{firstNestedTaskId}.{taskName}";
+                var expectedTaskDurationInMs = firstNestedTasksDurationInMs[taskIndex];
+                Assert.True(resultsDictionary.TryGetValue(taskId, out var measuredTaskDurationInMs));
+                (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedTaskDurationInMs, TaskErrorMarginInMs);
+                Assert.InRange(measuredTaskDurationInMs, lowerLimit, upperLimit);
+            }
+
+            var secondNestedTaskId = $"{parentTaskName}.{secondNestedTaskName}";
+            Assert.True(resultsDictionary.TryGetValue(secondNestedTaskId, out var measuredSecondNestedTaskDurationInMs));
+            var secondNestedTaskErrorMargin = TaskErrorMarginInMs * secondNestedTasksDurationInMs.Length;
+            (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedSecondNestedTaskDurationInMs, secondNestedTaskErrorMargin);
+            Assert.InRange(measuredSecondNestedTaskDurationInMs, lowerLimit, upperLimit);
+            for (int taskIndex = 0; taskIndex < secondNestedTasksDurationInMs.Length; taskIndex++)
+            {
+                var taskName = $"{secondLeafTaskPrefix}-{taskIndex}";
+                var taskId = $"{secondNestedTaskId}.{taskName}";
+                var expectedTaskDurationInMs = secondNestedTasksDurationInMs[taskIndex];
+                Assert.True(resultsDictionary.TryGetValue(taskId, out var measuredTaskDurationInMs));
+                (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedTaskDurationInMs, TaskErrorMarginInMs);
+                Assert.InRange(measuredTaskDurationInMs, lowerLimit, upperLimit);
+            }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

@@ -266,6 +266,17 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
         }
 
         /// <summary>
+        /// Clears tracked data.
+        /// </summary>
+        public static void ClearData()
+        {
+            lock (GlobalLock)
+            {
+                CompilationTasks.Clear();
+            }
+        }
+
+        /// <summary>
         /// Handles a compilation task event.
         /// </summary>
         public static void OnCompilationTaskEvent(CompilationTaskEventType type, string? parentTaskName, string taskName)
@@ -286,7 +297,7 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
         /// Throws an IOException if the specified output folder is a file path.
         /// Throws a NotSupportedException if the path to the output folder is malformed.
         /// </summary>
-        public static void PublishResults(string outputFolder, bool clearTracking = false)
+        public static void PublishResults(string outputFolder)
         {
             var compilationProcessesForest = BuildCompilationTasksHierarchy();
             var outputPath = Path.GetFullPath(outputFolder);
@@ -307,11 +318,6 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
 
                 jsonWriter.WriteEndObject();
                 jsonWriter.Flush();
-            }
-
-            if (clearTracking)
-            {
-                CompilationTasks.Clear();
             }
         }
     }
