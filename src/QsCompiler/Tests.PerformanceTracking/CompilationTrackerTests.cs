@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 using Microsoft.Quantum.QsCompiler.CommandLineCompiler;
@@ -55,6 +56,50 @@ namespace Tests.PerformanceTracking
             // Verify measured results are the expected ones.
             Assert.True(resultsDictionary.TryGetValue(taskName, out var measuredDurationInMs));
             var (lowerLimit, upperLimit) = CalculateMeasurementLimits(durationInMs, TaskErrorMarginInMs);
+            Assert.InRange(measuredDurationInMs, lowerLimit, upperLimit);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(100)]
+        [InlineData(325)]
+        [InlineData(700)]
+        [InlineData(1050)]
+        public void MeasureTaskMultipleTimes(int taskDurationInMs)
+        {
+            CompilationTracker.ClearData();
+            const int delayBetweenMeasurementsInMs = 100;
+            const int measurementCount = 5;
+            const string taskName = "TestTask";
+
+            // Measure time spent in a task.
+            for (int index = 0; index < measurementCount; index++)
+            {
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    null,
+                    taskName);
+
+                Thread.Sleep(taskDurationInMs);
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    null,
+                    taskName);
+
+                Thread.Sleep(delayBetweenMeasurementsInMs);
+            }
+
+            // Publish measurement results.
+            var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
+            CompilationTracker.PublishResults(resultsFolder);
+            var resultsFile = Path.Combine(resultsFolder, CompilationTracker.CompilationPerfDataFileName);
+            var resultsDictionary = ParseJsonToDictionary(resultsFile);
+
+            // Verify measured results are the expected ones.
+            Assert.True(resultsDictionary.TryGetValue(taskName, out var measuredDurationInMs));
+            var acumulatedErrorMargin = TaskErrorMarginInMs * measurementCount;
+            var expectedDurationInMs = taskDurationInMs * measurementCount;
+            var (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedDurationInMs, acumulatedErrorMargin);
             Assert.InRange(measuredDurationInMs, lowerLimit, upperLimit);
         }
 

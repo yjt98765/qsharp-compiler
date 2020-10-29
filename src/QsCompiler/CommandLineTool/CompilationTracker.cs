@@ -203,7 +203,6 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
             lock (GlobalLock)
             {
                 // First add the roots (top-level tasks) of all trees to the forest.
-
                 foreach (var entry in CompilationTasks)
                 {
                     if (entry.Value.ParentName == null)
@@ -215,7 +214,6 @@ namespace Microsoft.Quantum.QsCompiler.CommandLineCompiler
                 }
 
                 // Iterate through the tasks until all of them have been added to the hierarchy.
-
                 while (toFindChildrenNodes.Count > 0)
                 {
                     var parentNode = toFindChildrenNodes.Dequeue();
