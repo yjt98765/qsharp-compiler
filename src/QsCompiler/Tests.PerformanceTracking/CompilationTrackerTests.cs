@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 using Microsoft.Quantum.QsCompiler.CommandLineCompiler;
@@ -371,6 +370,131 @@ namespace Tests.PerformanceTracking
                 (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedTaskDurationInMs, TaskErrorMarginInMs);
                 Assert.InRange(measuredTaskDurationInMs, lowerLimit, upperLimit);
             }
+        }
+
+        [Fact]
+        public void PublishEmptyResults()
+        {
+            CompilationTracker.ClearData();
+            var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
+            CompilationTracker.PublishResults(resultsFolder);
+            var resultsFile = Path.Combine(resultsFolder, CompilationTracker.CompilationPerfDataFileName);
+            var resultsDictionary = ParseJsonToDictionary(resultsFile);
+            Assert.Empty(resultsDictionary);
+        }
+
+        [Fact]
+        public void PublishWhenStillInProgress()
+        {
+            CompilationTracker.ClearData();
+            const string taskName = "TestTask";
+
+            // Start measuring a task but attempt to publish when it is still in progress.
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                null,
+                taskName);
+
+            var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
+            Exception caughtException = null;
+            try
+            {
+                CompilationTracker.PublishResults(resultsFolder);
+            }
+            catch (Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.NotNull(caughtException);
+            Assert.IsType<InvalidOperationException>(caughtException);
+        }
+
+        [Fact]
+        public void StartWhenAlreadyInProgress()
+        {
+            CompilationTracker.ClearData();
+            const string taskName = "TestTask";
+
+            // Start measuring a task when it is already in progress.
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                null,
+                taskName);
+
+            Exception caughtException = null;
+            try
+            {
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    null,
+                    taskName);
+            }
+            catch(Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.NotNull(caughtException);
+            Assert.IsType<InvalidOperationException>(caughtException);
+        }
+
+        [Fact]
+        public void StopWhenNeverStarted()
+        {
+            CompilationTracker.ClearData();
+            const string taskName = "TestTask";
+
+            // Stop measuring a task when it was never started.
+            Exception caughtException = null;
+            try
+            {
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    null,
+                    taskName);
+            }
+            catch (Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.NotNull(caughtException);
+            Assert.IsType<InvalidOperationException>(caughtException);
+        }
+
+        [Fact]
+        public void StopWhenNotInProgress()
+        {
+            CompilationTracker.ClearData();
+            const string taskName = "TestTask";
+
+            // Stop measuring a task when it was not in progress.
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                null,
+                taskName);
+
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                null,
+                taskName);
+
+            Exception caughtException = null;
+            try
+            {
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    null,
+                    taskName);
+            }
+            catch (Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.NotNull(caughtException);
+            Assert.IsType<InvalidOperationException>(caughtException);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
