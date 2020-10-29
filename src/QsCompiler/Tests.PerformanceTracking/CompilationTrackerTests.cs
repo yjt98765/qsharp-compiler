@@ -124,6 +124,66 @@ namespace Tests.PerformanceTracking
         }
 
         [Theory]
+        [InlineData(0, 0)]
+        [InlineData(250, 0)]
+        [InlineData(0, 250)]
+        [InlineData(250, 250)]
+        [InlineData(1000, 1000)]
+        public void MeasureTasks1LevelNestedPadded(int startPaddingInMs, int endPaddingInMs)
+        {
+            CompilationTracker.ClearData();
+            const int nestedTaskCount = 5;
+            const int nestedTaskDurationInMs = 500;
+            const string parentTaskName = "ParentTask";
+            const string nestedTaskPrefix = "NestedTask";
+
+            // Measure time spent in a tasks.
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                null,
+                parentTaskName);
+
+            Thread.Sleep(startPaddingInMs);
+            for (int index = 0; index < nestedTaskCount; index++)
+            {
+                var taskName = $"{nestedTaskPrefix}-{index}";
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.Start,
+                    parentTaskName,
+                    taskName);
+
+                Thread.Sleep(nestedTaskDurationInMs);
+                CompilationTracker.OnCompilationTaskEvent(
+                    Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                    parentTaskName,
+                    taskName);
+            }
+
+            Thread.Sleep(endPaddingInMs);
+            CompilationTracker.OnCompilationTaskEvent(
+                Microsoft.Quantum.QsCompiler.Diagnostics.CompilationTaskEventType.End,
+                null,
+                parentTaskName);
+
+            // Publish measurement results.
+            var resultsFolder = Path.Combine(ResultsFolderRootName, GetCurrentMethodName());
+            CompilationTracker.PublishResults(resultsFolder);
+            var resultsFile = Path.Combine(resultsFolder, CompilationTracker.CompilationPerfDataFileName);
+            var resultsDictionary = ParseJsonToDictionary(resultsFile);
+
+            // Verify measured results are the expected ones.
+            Assert.True(resultsDictionary.TryGetValue(parentTaskName, out var measuredParentTaskDurationInMs));
+            var expectedParentTaskDuration =
+                startPaddingInMs +
+                (nestedTaskCount * nestedTaskDurationInMs) +
+                endPaddingInMs;
+
+            var acumulatedErrorMargin = TaskErrorMarginInMs * nestedTaskCount;
+            var (lowerLimit, upperLimit) = CalculateMeasurementLimits(expectedParentTaskDuration, acumulatedErrorMargin);
+            Assert.InRange(measuredParentTaskDurationInMs, lowerLimit, upperLimit);
+        }
+
+        [Theory]
         [InlineData(new int[] { },
                     new int[] { })]
         [InlineData(new int[] { },
