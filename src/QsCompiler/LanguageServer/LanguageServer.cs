@@ -585,7 +585,7 @@ namespace Microsoft.Quantum.QsLanguageServer
             {
                 new TextEdit
                 {
-                    NewText = Formatter.format(string.Concat(lines)),
+                    NewText = Formatter.Format(string.Concat(lines)),
                     Range = new Range
                     {
                         Start = new Position(0, 0),
