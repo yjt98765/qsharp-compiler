@@ -577,7 +577,7 @@ namespace Microsoft.Quantum.QsLanguageServer
         /// The LSP <c>textDocument/formatting</c> method.
         /// </summary>
         [JsonRpcMethod(Methods.TextDocumentFormattingName)]
-        public TextEdit[]? OnFormatting(JToken token)
+        public TextEdit[] OnFormatting(JToken token)
         {
             var args = Utils.TryJTokenAs<DocumentFormattingParams>(token);
             var lines = this.editorState.FileContentInMemory(args.TextDocument) ?? Array.Empty<string>();
