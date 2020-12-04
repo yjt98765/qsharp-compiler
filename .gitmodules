@@ -1,0 +1,3 @@
+[submodule "qsfmt"]
+	path = qsfmt
+	url = https://github.com/samarsha/qsfmt.git

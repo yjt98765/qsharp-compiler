@@ -15,7 +15,9 @@ using Microsoft.Quantum.QsCompiler.SymbolManagement;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using QsFmt.Formatter;
 using StreamJsonRpc;
+using Range = Microsoft.VisualStudio.LanguageServer.Protocol.Range;
 
 namespace Microsoft.Quantum.QsLanguageServer
 {
@@ -232,30 +234,30 @@ namespace Microsoft.Quantum.QsLanguageServer
 
             var capabilities = new ServerCapabilities
             {
-                TextDocumentSync = new TextDocumentSyncOptions(),
-                CompletionProvider = supportsCompletion ? new CompletionOptions() : null,
-                SignatureHelpProvider = new SignatureHelpOptions(),
+                CodeActionProvider = this.clientCapabilities?.Workspace?.ApplyEdit ?? true,
+                CompletionProvider = supportsCompletion ? new CompletionOptions
+                {
+                    ResolveProvider = true,
+                    TriggerCharacters = useTriggerCharWorkaround ? new[] { " ", ".", "(" } : new[] { ".", "(" },
+                }
+                : null,
+                DefinitionProvider = true,
+                DocumentHighlightProvider = true,
+                DocumentSymbolProvider = true,
                 ExecuteCommandProvider = new ExecuteCommandOptions(),
+                DocumentFormattingProvider = true,
+                HoverProvider = true,
+                ReferencesProvider = true,
+                RenameProvider = true,
+                SignatureHelpProvider = new SignatureHelpOptions(),
+                TextDocumentSync = new TextDocumentSyncOptions(),
+                WorkspaceSymbolProvider = false
             };
+            capabilities.ExecuteCommandProvider.Commands = new[] { CommandIds.ApplyEdit }; // do not declare internal capabilities
+            capabilities.SignatureHelpProvider.TriggerCharacters = new[] { "(", "," };
             capabilities.TextDocumentSync.Change = TextDocumentSyncKind.Incremental;
             capabilities.TextDocumentSync.OpenClose = true;
             capabilities.TextDocumentSync.Save = new SaveOptions { IncludeText = true };
-            capabilities.CodeActionProvider = this.clientCapabilities?.Workspace?.ApplyEdit ?? true;
-            capabilities.DefinitionProvider = true;
-            capabilities.ReferencesProvider = true;
-            capabilities.DocumentSymbolProvider = true;
-            capabilities.WorkspaceSymbolProvider = false;
-            capabilities.RenameProvider = true;
-            capabilities.HoverProvider = true;
-            capabilities.DocumentHighlightProvider = true;
-            capabilities.SignatureHelpProvider.TriggerCharacters = new[] { "(", "," };
-            capabilities.ExecuteCommandProvider.Commands = new[] { CommandIds.ApplyEdit }; // do not declare internal capabilities
-            if (capabilities.CompletionProvider != null)
-            {
-                capabilities.CompletionProvider.ResolveProvider = true;
-                capabilities.CompletionProvider.TriggerCharacters =
-                    useTriggerCharWorkaround ? new[] { " ", ".", "(" } : new[] { ".", "(" };
-            }
 
             this.waitForInit = null;
             return new InitializeResult { Capabilities = capabilities };
@@ -569,6 +571,28 @@ namespace Microsoft.Quantum.QsLanguageServer
             {
                 return Array.Empty<Command>();
             }
+        }
+
+        /// <summary>
+        /// The LSP <c>textDocument/formatting</c> method.
+        /// </summary>
+        [JsonRpcMethod(Methods.TextDocumentFormattingName)]
+        public TextEdit[]? OnFormatting(JToken token)
+        {
+            var args = Utils.TryJTokenAs<DocumentFormattingParams>(token);
+            var lines = this.editorState.FileContentInMemory(args.TextDocument) ?? Array.Empty<string>();
+            return new[]
+            {
+                new TextEdit
+                {
+                    NewText = Formatter.format(string.Concat(lines)),
+                    Range = new Range
+                    {
+                        Start = new Position(0, 0),
+                        End = new Position(lines.Length, lines.LastOrDefault()?.Length ?? 0)
+                    }
+                }
+            };
         }
 
         [JsonRpcMethod(Methods.WorkspaceExecuteCommandName)]
