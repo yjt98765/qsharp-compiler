@@ -25,8 +25,20 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
         // TODO: Temporary method.
         public static SyntaxTree.QsCompilation CreateQsCompilationFromQsCompilationBonded(QsCompilationBonded qsCompilationBonded) =>
             new SyntaxTree.QsCompilation(
-                namespaces: qsCompilationBonded.Namespaces.Select(n =>  n.Deserialize().ToCompilerObject()).ToImmutableArray(),
+                // It seems like there is not much difference between just deserializing one or all the namespaces.
+                // Probably because the "Deserialize" method is not as efficient as using a deserializer.
+                // TODO: Check whether a deserializer migh be used.
+                namespaces: ImmutableArray.Create(qsCompilationBonded.Namespaces.First().Deserialize().ToCompilerObject()),
+                //namespaces: qsCompilationBonded.Namespaces.Select(n => n.Deserialize().ToCompilerObject()).ToImmutableArray(),
                 entryPoints: qsCompilationBonded.EntryPoints.Select(e => e.ToCompilerObject()).ToImmutableArray());
+
+        // TODO: Temporary method.
+        // TODO: Experiment with this.
+        public static QsNamespace FromIBondedQsNamespace(Bond.IBonded<QsNamespace> iBondedQsNamespace)
+        {
+            var bondedQsNamespace = iBondedQsNamespace.Convert<QsNamespace>();
+            return bondedQsNamespace.Deserialize();
+        }
 
         private static BigInteger ToBigInteger(this ArraySegment<byte> blob) =>
             new BigInteger(blob);

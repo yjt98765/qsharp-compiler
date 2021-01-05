@@ -98,9 +98,9 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
                     notBondedDeserializer = new SimpleBinaryDeserializer(typeof(QsCompilation));
                 }
 
-                if (bondedSerializer == null)
+                if (notBondedSerializer == null)
                 {
-                    bondedSerializer = new SimpleBinarySerializer(typeof(QsCompilation));
+                    notBondedSerializer = new SimpleBinarySerializer(typeof(QsCompilation));
                 }
             }
         }
@@ -178,6 +178,23 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
         }
 
         // TODO: Temporary method.
+        public static void SerializeQsCompilationNotBonded(
+            QsCompilation qsCompilationNotBonded,
+            Stream stream)
+        {
+            lock (BondSharedDataStructuresLock)
+            {
+                var outputBuffer = new OutputBuffer();
+                var writer = new SimpleBinaryWriter<OutputBuffer>(outputBuffer);
+                notBondedSerializer?.Serialize(qsCompilationNotBonded, writer);
+                stream.Write(outputBuffer.Data);
+            }
+
+            stream.Flush();
+            stream.Position = 0;
+        }
+
+        // TODO: Temporary method.
         public static QsCompilationBonded? DeserializeQsCompilationBonded(byte[] byteArray)
         {
             QsCompilationBonded? qsCompilationBonded = null;
@@ -193,12 +210,35 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
         }
 
         // TODO: Temporary method.
+        public static QsCompilation? DeserializeQsCompilationNotBonded(byte[] byteArray)
+        {
+            QsCompilation? qsCompilationNotBonded = null;
+            lock (BondSharedDataStructuresLock)
+            {
+                var inputBuffer = new InputBuffer(byteArray);
+                var deserializer = GetSimpleBinaryDeserializer();
+                var reader = new SimpleBinaryReader<InputBuffer>(inputBuffer);
+                qsCompilationNotBonded = notBondedDeserializer?.Deserialize<QsCompilation>(reader);
+            }
+
+            return qsCompilationNotBonded;
+        }
+
+        // TODO: Temporary method.
         public static QsCompilationBonded TranslateToQsCompilationBonded(SyntaxTree.QsCompilation qsCompilation) =>
             BondSchemaTranslator.CreateQsCompilationBonded(qsCompilation);
 
         // TODO: Temporary method.
+        public static QsCompilation TranslateToQsCompilationNotBonded(SyntaxTree.QsCompilation qsCompilation) =>
+            BondSchemaTranslator.CreateBondCompilation(qsCompilation);
+
+        // TODO: Temporary method.
         public static SyntaxTree.QsCompilation TranslateFromQsCompilationBonded(QsCompilationBonded qsCompilationBonded) =>
             CompilerObjectTranslator.CreateQsCompilationFromQsCompilationBonded(qsCompilationBonded);
+
+        // TODO: Temporary method.
+        public static SyntaxTree.QsCompilation TranslateFromQsCompilationNotBonded(QsCompilation qsCompilationNotBonded) =>
+            CompilerObjectTranslator.CreateQsCompilation(qsCompilationNotBonded);
 
         private static SimpleBinaryDeserializer GetSimpleBinaryDeserializer()
         {

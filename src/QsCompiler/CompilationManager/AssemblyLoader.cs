@@ -138,6 +138,7 @@ namespace Microsoft.Quantum.QsCompiler
         // TODO: Remove temporary method.
         private static void PerformLazyDeserializationExperiments(QsCompilation qsCompilation)
         {
+            Console.WriteLine($"Total Namespaces: {qsCompilation.Namespaces.Length}");
             // Experiments with Bonded.
             Console.WriteLine($"Bonded Experiments");
             PerformanceTracking.TaskStart(PerformanceTracking.Task.Bonded);
@@ -146,7 +147,6 @@ namespace Microsoft.Quantum.QsCompiler
             PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedTranslationTo);
             var qsCompilationBonded = BondSchemas.Protocols.TranslateToQsCompilationBonded(qsCompilation);
             PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedTranslationTo);
-
             using (var bondedSerializedMs = new MemoryStream())
             {
                 // Serialize.
@@ -165,6 +165,7 @@ namespace Microsoft.Quantum.QsCompiler
                     PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedTranslationFrom);
                     var qsCompilationFromQsCompilationBonded = BondSchemas.Protocols.TranslateFromQsCompilationBonded(qsCompilationBondedDeserialized);
                     PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedTranslationFrom);
+                    //Console.WriteLine($"\t- Deserialized Namespaces: {qsCompilationFromQsCompilationBonded.Namespaces.Length}");
                 }
             }
 
@@ -173,8 +174,33 @@ namespace Microsoft.Quantum.QsCompiler
             // Experiments with Not-Bonded.
             Console.WriteLine($"Not-Bonded Experiments");
             PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBonded);
+            // Translate to QsCompilation.
             // Initialization is already done at this point.
-            // TODO: Continue implementation for comparison.
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBondedTranslationTo);
+            var qsCompilationNotBonded = BondSchemas.Protocols.TranslateToQsCompilationNotBonded(qsCompilation);
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBondedTranslationTo);
+            using (var notBondedSerializedMs = new MemoryStream())
+            {
+                // Serialize.
+                PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBondedSerialization);
+                BondSchemas.Protocols.SerializeQsCompilationNotBonded(qsCompilationNotBonded, notBondedSerializedMs);
+                PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBondedSerialization);
+
+                // Deserialize.
+                PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBondedDeserialization);
+                var qsCompilationNotBondedDeserialized = BondSchemas.Protocols.DeserializeQsCompilationNotBonded(notBondedSerializedMs.ToArray());
+                PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBondedDeserialization);
+
+                if (qsCompilationNotBondedDeserialized != null)
+                {
+                    // Translate to native QsCompilation.
+                    PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBondedTranslationFrom);
+                    var qsCompilationFromQsCompilationBonded = BondSchemas.Protocols.TranslateFromQsCompilationNotBonded(qsCompilationNotBondedDeserialized);
+                    PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBondedTranslationFrom);
+                    //Console.WriteLine($"\t- Deserialized Namespaces: {qsCompilationFromQsCompilationBonded.Namespaces.Length}");
+                }
+            }
+
             PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBonded);
         }
 
