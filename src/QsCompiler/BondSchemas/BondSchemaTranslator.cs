@@ -25,6 +25,17 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
                 EntryPoints = qsCompilation.EntryPoints.Select(e => e.ToBondSchema()).ToList()
             };
 
+        // TODO: Temporary method.
+        public static QsCompilationBonded CreateQsCompilationBonded(SyntaxTree.QsCompilation qsCompilation) =>
+            new QsCompilationBonded
+            {
+                Namespaces = qsCompilation.Namespaces
+                    .Select(n => new Bonded<QsNamespace>(n.ToBondSchema()))
+                    .Cast<IBonded<QsNamespace>>()
+                    .ToList(),
+                EntryPoints = qsCompilation.EntryPoints.Select(e => e.ToBondSchema()).ToList()
+            };
+
         private static AccessModifier ToBondSchema(this SyntaxTokens.AccessModifier accessModifier) =>
             accessModifier.Tag switch
             {

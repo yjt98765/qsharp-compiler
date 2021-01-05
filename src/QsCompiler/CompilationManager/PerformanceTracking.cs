@@ -124,7 +124,21 @@ namespace Microsoft.Quantum.QsCompiler.Diagnostics
             /// <summary>
             /// Task that creates headers from references.
             /// </summary>
-            ReferenceHeadersCreation
+            ReferenceHeadersCreation,
+
+            // TODO: Temporary tracking tasks.
+            Bonded,
+            BondedInitialization,
+            BondedTranslationTo,
+            BondedTranslationFrom,
+            BondedDeserialization,
+            BondedSerialization,
+            NotBonded,
+            NotBondedInitialization,
+            NotBondedTranslationTo,
+            NotBondedTranslationFrom,
+            NotBondedDeserialization,
+            NotBondedSerialization
         }
 
         /// <summary>
@@ -164,7 +178,19 @@ namespace Microsoft.Quantum.QsCompiler.Diagnostics
             { Task.DeserializerInit, Task.ReferenceLoading },
             { Task.SyntaxTreeDeserialization, Task.ReferenceLoading },
             { Task.HeaderAttributesLoading, Task.ReferenceLoading },
-            { Task.ReferenceHeadersCreation, Task.ReferenceLoading }
+            { Task.ReferenceHeadersCreation, Task.ReferenceLoading },
+            { Task.Bonded, Task.ReferenceLoading },
+            { Task.BondedInitialization, Task.Bonded },
+            { Task.BondedTranslationTo, Task.Bonded },
+            { Task.BondedTranslationFrom, Task.Bonded },
+            { Task.BondedDeserialization, Task.Bonded },
+            { Task.BondedSerialization, Task.Bonded },
+            { Task.NotBonded, Task.ReferenceLoading },
+            { Task.NotBondedInitialization, Task.NotBonded },
+            { Task.NotBondedTranslationTo, Task.NotBonded },
+            { Task.NotBondedTranslationFrom, Task.NotBonded },
+            { Task.NotBondedDeserialization, Task.NotBonded },
+            { Task.NotBondedSerialization, Task.NotBonded }
         };
 
         /// <summary>

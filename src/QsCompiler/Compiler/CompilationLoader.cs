@@ -449,13 +449,15 @@ namespace Microsoft.Quantum.QsCompiler
             // When loading references is done through the generated C# a Bond deserializer is not needed.
             if (!this.config.LoadReferencesBasedOnGeneratedCsharp)
             {
-                BondSchemas.Protocols.InitializeDeserializer();
+                // TODO: Uncomment.
+                //BondSchemas.Protocols.InitializeDeserializer();
             }
 
             // When the syntax tree is not serialized a Bond serializer is not needed.
             if (this.config.SerializeSyntaxTree)
             {
-                BondSchemas.Protocols.InitializeSerializer();
+                // TODO: Uncomment.
+                //BondSchemas.Protocols.InitializeSerializer();
             }
 
             Status rewriteStepLoading = Status.Succeeded;

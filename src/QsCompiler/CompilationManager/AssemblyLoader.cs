@@ -110,6 +110,12 @@ namespace Microsoft.Quantum.QsCompiler
             compilation = null;
             try
             {
+                // TODO: Remove experimentation code.
+                // EXPERIMENT START.
+                PerformLazyDeserializationInitialization();
+                PerformNotLazyDeserializationInitialization();
+                // EXPERIMENT END.
+
                 PerformanceTracking.TaskStart(PerformanceTracking.Task.SyntaxTreeDeserialization);
                 compilation = BondSchemas.Protocols.DeserializeQsCompilationFromSimpleBinary(byteArray);
                 PerformanceTracking.TaskEnd(PerformanceTracking.Task.SyntaxTreeDeserialization);
@@ -129,15 +135,67 @@ namespace Microsoft.Quantum.QsCompiler
             return compilation != null && IsValidCompilation(compilation);
         }
 
+        // TODO: Remove temporary method.
         private static void PerformLazyDeserializationExperiments(QsCompilation qsCompilation)
         {
-            Console.WriteLine($"Lazy Deserialization Experiments");
-            // TODO: Add performance tracking.
+            // Experiments with Bonded.
+            Console.WriteLine($"Bonded Experiments");
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.Bonded);
+            // Initialization is already done at this point.
+            // Translate to QsCompilationBonded.
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedTranslationTo);
+            var qsCompilationBonded = BondSchemas.Protocols.TranslateToQsCompilationBonded(qsCompilation);
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedTranslationTo);
+
+            using (var bondedSerializedMs = new MemoryStream())
+            {
+                // Serialize.
+                PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedSerialization);
+                BondSchemas.Protocols.SerializeQsCompilationBonded(qsCompilationBonded, bondedSerializedMs);
+                PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedSerialization);
+
+                // Deserialize except bonded types.
+                PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedDeserialization);
+                var qsCompilationBondedDeserialized = BondSchemas.Protocols.DeserializeQsCompilationBonded(bondedSerializedMs.ToArray());
+                PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedDeserialization);
+
+                if (qsCompilationBondedDeserialized != null)
+                {
+                    // Translate to native QsCompilation.
+                    PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedTranslationFrom);
+                    var qsCompilationFromQsCompilationBonded = BondSchemas.Protocols.TranslateFromQsCompilationBonded(qsCompilationBondedDeserialized);
+                    PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedTranslationFrom);
+                }
+            }
+
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.Bonded);
+
+            // Experiments with Not-Bonded.
+            Console.WriteLine($"Not-Bonded Experiments");
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBonded);
+            // Initialization is already done at this point.
+            // TODO: Continue implementation for comparison.
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBonded);
+        }
+
+        // TODO: Remove temporary method.
+        private static void PerformLazyDeserializationInitialization()
+        {
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.Bonded);
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.BondedInitialization);
             BondSchemas.Protocols.InitializeLazyInfrastructure();
-            // TODO: Translate to QsCompilationBonded.
-            // TODO: Serialize.
-            // TODO: Deserialize except bonded types.
-            // TODO: Deserialize bonded types.
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.BondedInitialization);
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.Bonded);
+        }
+
+
+        private static void PerformNotLazyDeserializationInitialization()
+        {
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBonded);
+            PerformanceTracking.TaskStart(PerformanceTracking.Task.NotBondedInitialization);
+            BondSchemas.Protocols.InitializeNotLazyInfrastructure();
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBondedInitialization);
+            PerformanceTracking.TaskEnd(PerformanceTracking.Task.NotBonded);
         }
 
         /// <summary>

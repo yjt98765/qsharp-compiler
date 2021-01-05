@@ -25,6 +25,11 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
         private static readonly object BondSharedDataStructuresLock = new object();
         private static Task<SimpleBinaryDeserializer>? simpleBinaryDeserializerInitialization = null;
         private static Task<SimpleBinarySerializer>? simpleBinarySerializerInitialization = null;
+        // TODO: Temporary members.
+        private static SimpleBinaryDeserializer? bondedDeserializer = null;
+        private static SimpleBinarySerializer? bondedSerializer = null;
+        private static SimpleBinaryDeserializer? notBondedDeserializer = null;
+        private static SimpleBinarySerializer? notBondedSerializer = null;
 
         /// <summary>
         /// Deserializes a Q# compilation object from its Bond simple binary representation.
@@ -69,8 +74,37 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
         // TODO: Temporary method.
         public static void InitializeLazyInfrastructure()
         {
-            // TODO: Implement.
+            lock (BondSharedDataStructuresLock)
+            {
+                if (bondedDeserializer == null)
+                {
+                    bondedDeserializer = new SimpleBinaryDeserializer(typeof(QsCompilationBonded));
+                }
+
+                if (bondedSerializer == null)
+                {
+                    bondedSerializer = new SimpleBinarySerializer(typeof(QsCompilationBonded));
+                }
+            }
         }
+
+        // TODO: Temporary method.
+        public static void InitializeNotLazyInfrastructure()
+        {
+            lock (BondSharedDataStructuresLock)
+            {
+                if (notBondedDeserializer == null)
+                {
+                    notBondedDeserializer = new SimpleBinaryDeserializer(typeof(QsCompilation));
+                }
+
+                if (bondedSerializer == null)
+                {
+                    bondedSerializer = new SimpleBinarySerializer(typeof(QsCompilation));
+                }
+            }
+        }
+
 
         /// <summary>
         /// Starts the creation of a Bond deserializer.
@@ -125,6 +159,46 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
             stream.Flush();
             stream.Position = 0;
         }
+
+        // TODO: Temporary method.
+        public static void SerializeQsCompilationBonded(
+            QsCompilationBonded qsCompilationBonded,
+            Stream stream)
+        {
+            lock (BondSharedDataStructuresLock)
+            {
+                var outputBuffer = new OutputBuffer();
+                var writer = new SimpleBinaryWriter<OutputBuffer>(outputBuffer);
+                bondedSerializer?.Serialize(qsCompilationBonded, writer);
+                stream.Write(outputBuffer.Data);
+            }
+
+            stream.Flush();
+            stream.Position = 0;
+        }
+
+        // TODO: Temporary method.
+        public static QsCompilationBonded? DeserializeQsCompilationBonded(byte[] byteArray)
+        {
+            QsCompilationBonded? qsCompilationBonded = null;
+            lock (BondSharedDataStructuresLock)
+            {
+                var inputBuffer = new InputBuffer(byteArray);
+                var deserializer = GetSimpleBinaryDeserializer();
+                var reader = new SimpleBinaryReader<InputBuffer>(inputBuffer);
+                qsCompilationBonded = bondedDeserializer?.Deserialize<QsCompilationBonded>(reader);
+            }
+
+            return qsCompilationBonded;
+        }
+
+        // TODO: Temporary method.
+        public static QsCompilationBonded TranslateToQsCompilationBonded(SyntaxTree.QsCompilation qsCompilation) =>
+            BondSchemaTranslator.CreateQsCompilationBonded(qsCompilation);
+
+        // TODO: Temporary method.
+        public static SyntaxTree.QsCompilation TranslateFromQsCompilationBonded(QsCompilationBonded qsCompilationBonded) =>
+            CompilerObjectTranslator.CreateQsCompilationFromQsCompilationBonded(qsCompilationBonded);
 
         private static SimpleBinaryDeserializer GetSimpleBinaryDeserializer()
         {

@@ -22,6 +22,12 @@ namespace Microsoft.Quantum.QsCompiler.BondSchemas
                 namespaces: bondCompilation.Namespaces.Select(n => n.ToCompilerObject()).ToImmutableArray(),
                 entryPoints: bondCompilation.EntryPoints.Select(e => e.ToCompilerObject()).ToImmutableArray());
 
+        // TODO: Temporary method.
+        public static SyntaxTree.QsCompilation CreateQsCompilationFromQsCompilationBonded(QsCompilationBonded qsCompilationBonded) =>
+            new SyntaxTree.QsCompilation(
+                namespaces: qsCompilationBonded.Namespaces.Select(n =>  n.Deserialize().ToCompilerObject()).ToImmutableArray(),
+                entryPoints: qsCompilationBonded.EntryPoints.Select(e => e.ToCompilerObject()).ToImmutableArray());
+
         private static BigInteger ToBigInteger(this ArraySegment<byte> blob) =>
             new BigInteger(blob);
 
