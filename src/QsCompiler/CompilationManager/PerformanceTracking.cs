@@ -124,7 +124,32 @@ namespace Microsoft.Quantum.QsCompiler.Diagnostics
             /// <summary>
             /// Task that creates headers from references.
             /// </summary>
-            ReferenceHeadersCreation
+            ReferenceHeadersCreation,
+
+            /// <summary>
+            ///
+            /// </summary>
+            FileManagersInitialization,
+
+            /// <summary>
+            ///
+            /// </summary>
+            UpdateReferencesAndSources,
+
+            /// <summary>
+            ///
+            /// </summary>
+            BuildCompilationObject,
+
+            /// <summary>
+            ///
+            /// </summary>
+            DisposeCompilationManager,
+
+            /// <summary>
+            ///
+            /// </summary>
+            LogCompilationStatus
         }
 
         /// <summary>
