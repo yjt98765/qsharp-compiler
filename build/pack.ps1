@@ -12,7 +12,8 @@ Write-Host "Assembly version: $Env:ASSEMBLY_VERSION"
 ##
 function Publish-One {
     param(
-        [string]$project
+        [string]$project,
+        [string]$additional_parameters=""
     );
 
     Write-Host "##[info]Publishing $project ..."
@@ -25,6 +26,7 @@ function Publish-One {
         -c $Env:BUILD_CONFIGURATION `
         -v $Env:BUILD_VERBOSITY `
         --no-build `
+        $additional_parameters `
         @args `
         /property:Version=$Env:ASSEMBLY_VERSION
 
@@ -37,7 +39,7 @@ function Publish-One {
 function Pack-One() {
     param(
         [string]$project,
-        [string]$include_references=""
+        [string]$additional_parameters=""
     );
 
     Write-Host "##[info]Packing '$project'..."
@@ -46,7 +48,7 @@ function Pack-One() {
         -Properties Configuration=$Env:BUILD_CONFIGURATION `
         -Version $Env:NUGET_VERSION `
         -Verbosity detailed `
-        $include_references
+        $additional_parameters
 
     if ($LastExitCode -ne 0) {
         Write-Host "##vso[task.logissue type=error;]Failed to pack $project."
@@ -87,6 +89,10 @@ $all_ok = $True
 
 Publish-One '../src/QsCompiler/CommandLineTool/CommandLineTool.csproj'
 Publish-One '../src/QsCompiler/LlvmBindings/LlvmBindings.csproj'
+Publish-One '../src/QsCompiler/LlvmBindings/LlvmBindings.csproj' '-runtime=win-x64'
+Publish-One '../src/QsCompiler/LlvmBindings/LlvmBindings.csproj' '-runtime=osx-x64'
+Publish-One '../src/QsCompiler/LlvmBindings/LlvmBindings.csproj' '-runtime=ubuntu.18.04-x64'
+Publish-One '../src/QsCompiler/LlvmBindings/LlvmBindings.csproj' '-runtime=ubuntu.20.04-x64'
 Publish-One '../src/QuantumSdk/Tools/BuildConfiguration/BuildConfiguration.csproj'
 Publish-One '../src/QuantumSdk/Tools/DefaultEntryPoint/DefaultEntryPoint.csproj'
 
