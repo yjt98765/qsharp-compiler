@@ -148,6 +148,7 @@
     <PropertyGroup>
       <QscCommand>$(QscExe) build --format MsBuild $(_VerbosityFlag) --response-files @(QscCommandArgsFile)</QscCommand>
     </PropertyGroup>
+    <Message Importance="high" Text="My first important message 1.0.3"/>
     <Exec Command="$(QscCommand)" IgnoreExitCode="false" ContinueOnError="ErrorAndContinue">
       <Output TaskParameter="ExitCode" PropertyName="QscExitCode"/>
     </Exec>
@@ -169,6 +170,8 @@
       <Compile Condition="$(CSharpGeneration)" Include="$(GeneratedFilesOutputPath)**/*.cs" Exclude="@(Compile)" AutoGen="true" />
       <Compile Condition="$(_DefaultEntryPoint) != ''" Include="$(_DefaultEntryPoint)" AutoGen="true" />
     </ItemGroup>
+    <Message Importance="high" Text="CsharpGeneration value: $(CSharpGeneration)"/>
+    <Message Importance="high" Text="My important message"/>
     <Message
       Condition="$(CSharpGeneration) And ('$(QscVerbosity)' == 'Detailed' Or '$(QscVerbosity)' == 'Diagnostic')"
       Text="C# files to compile: @(Compile)"
